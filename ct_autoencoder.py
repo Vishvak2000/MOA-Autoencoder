@@ -312,7 +312,7 @@ for i in range(n_iter):
     optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
 
     train_losses.append(
-        train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, n_iter, 'data/ct_vae')
+        train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 200, i, 'data/ct_vae')
     )
     test_losses.append(
         test_model(variational_autoencoder, test_loader)
