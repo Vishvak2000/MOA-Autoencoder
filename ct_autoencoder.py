@@ -291,8 +291,8 @@ test_losses = []
 for i in range(n_iter):
     print(f"Starting iteration {i+1} of {n_iter}...")
     linear = np.random.choice([True, False])
-    n_hidden_layers = np.random.randint(1, 3) # 1 to 2 hidden layers
-    latent_dim = np.random.randint(10, 50)
+    n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
+    latent_dim = np.random.randint(10, 100)
     if linear:
         # Linearly decay the hidden layers to the latent space.
         points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
