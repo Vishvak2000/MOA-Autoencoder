@@ -189,10 +189,14 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
             running_loss += loss.item()
 
         epoch_loss = running_loss
-        train_losses.append(epoch_loss)
+        train_error = test_model(model, train_loader)
+        test_error = test_model(model, test_loader)
+
+        train_losses.append([epoch_loss, train_error, test_error])
 
         print(f"Epoch {epoch+1}/{n_epochs}, Loss: {epoch_loss:.4f}")
-        print(f"Epoch {epoch+1}/{n_epochs}, Test Loss: {test_model(model, test_loader):.4f}")
+        print(f"Epoch {epoch+1}/{n_epochs}, Train Loss: {train_error:.4f}")
+        print(f"Epoch {epoch+1}/{n_epochs}, Test Loss: {test_error:.4f}")
 
         # Save checkpoints
         if (epoch + 1) in checkpoint_epochs:
