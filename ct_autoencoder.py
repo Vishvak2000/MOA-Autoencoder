@@ -40,6 +40,7 @@ class VariationalAutoencoder(nn.Module):
         encoder_dims = [input_dim] + hidden_dims
         for i in range(len(hidden_dims)):
             self.encoder_layers.append(nn.Linear(encoder_dims[i], encoder_dims[i+1]))
+            self.encoder_layers.append(nn.BatchNorm1d(encoder_dims[i+1]))
             self.encoder_layers.append(nn.ReLU())
             self.encoder_layers.append(nn.Dropout(dropout_rate))
         self.encoder_mu = nn.Linear(hidden_dims[-1], latent_dim)
@@ -50,6 +51,7 @@ class VariationalAutoencoder(nn.Module):
         decoder_dims = [latent_dim] + hidden_dims[::-1] #reverse hidden dims for decoder
         for i in range(len(hidden_dims)):
             self.decoder_layers.append(nn.Linear(decoder_dims[i], decoder_dims[i+1]))
+            self.encoder_layers.append(nn.BatchNorm1d(encoder_dims[i+1]))
             self.decoder_layers.append(nn.ReLU())
             self.decoder_layers.append(nn.Dropout(dropout_rate))
         self.decoder_output = nn.Linear(hidden_dims[0], input_dim)
