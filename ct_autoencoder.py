@@ -24,7 +24,7 @@ else:
     device = torch.device("cpu")
 
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, input_dim, hidden_dims, latent_dim):
+    def __init__(self, input_dim, hidden_dims, latent_dim, dropout_rate = 0.3):
         """
         Initializes the VAE model with variable hidden layers.
 
@@ -41,6 +41,7 @@ class VariationalAutoencoder(nn.Module):
         for i in range(len(hidden_dims)):
             self.encoder_layers.append(nn.Linear(encoder_dims[i], encoder_dims[i+1]))
             self.encoder_layers.append(nn.ReLU())
+            self.encoder_layers.append(nn.Dropout(dropout_rate))
         self.encoder_mu = nn.Linear(hidden_dims[-1], latent_dim)
         self.encoder_logvar = nn.Linear(hidden_dims[-1], latent_dim)
 
@@ -50,6 +51,7 @@ class VariationalAutoencoder(nn.Module):
         for i in range(len(hidden_dims)):
             self.decoder_layers.append(nn.Linear(decoder_dims[i], decoder_dims[i+1]))
             self.decoder_layers.append(nn.ReLU())
+            self.decoder_layers.append(nn.Dropout(dropout_rate))
         self.decoder_output = nn.Linear(hidden_dims[0], input_dim)
 
 
