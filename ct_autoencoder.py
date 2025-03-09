@@ -111,7 +111,7 @@ class VariationalAutoencoder(nn.Module):
         for layer in self.decoder_layers:
             h = F.relu(layer(h))
         #sigmoid for binary data. For real valued data, no sigmoid or tanh.
-        return torch.sigmoid(self.decoder_output(h))
+        return self.decoder_output(h)
 
     def forward(self, x):
         """
