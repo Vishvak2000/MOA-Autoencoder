@@ -200,6 +200,7 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
 
         # Save checkpoints
         if test_error < best_vae_score:
+            best_vae_score = test_error
             checkpoint_path = os.path.join(save_path, f"v_autoencoder_{iteration}.pth")
             torch.save({
                 'model': model,
