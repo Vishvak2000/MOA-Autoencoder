@@ -146,7 +146,7 @@ def loss_function(reconstruction_x, x, mu, logvar):
 
     return reconstruction_loss + kl_divergence
 
-def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs, iteration, save_path='model_checkpoints', **kwargs):
+def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs, iteration, save_path='data/model_checkpoints', **kwargs):
     """
     Trains an autoencoder model.
 
@@ -220,92 +220,97 @@ def test_model(model, test_loader):
             test_loss += loss.item()
     return test_loss / len(test_loader.dataset)
 
-def main(n_iter=100, batch_size = 1024):
-    # Get annotated dataset and stratify by treatment group (control or not).
-    moa_data = pd.read_csv('data/lish_moa_annotated.csv')
-    treated_data = moa_data[moa_data['cp_type'] == 'trt_cp']
-    control_data = moa_data[moa_data['cp_type'] == 'ctl_vehicle']
+##### MAIN FUNCTION
 
-    # Capture meta indices from start of table.
-    meta_indices = [
-        "sig_id",
-        "drug_id",
-        "training",
-        "cp_type",
-        "cp_time",
-        "cp_dose"
-    ]
-    
-    # Capture features from prefix values of columns.
-    expression_indices = list(filter(lambda col: col.startswith('g-'), moa_data.columns))
-    viability_indices = list(filter(lambda col: col.startswith('c-'), moa_data.columns))
-    feature_indices = expression_indices + viability_indices
+# def main(n_iter=100, batch_size = 1024):
+# Get annotated dataset and stratify by treatment group (control or not).
 
-    X = moa_data[feature_indices]
-    y = moa_data[meta_indices]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
-    
-    # Scale data according to training dataset. Apply training scale to test
-    # dataset. This does not transfer underlying knowledge, it's more for
-    # normalization, so they're still split!
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+batch_size = 1024
+n_iter = 10
 
-    if device.type == 'mps':
-        X_train_scaled = X_train_scaled.astype(np.float32)
-        X_test_scaled = X_train_scaled.astype(np.float32)
+moa_data = pd.read_csv('data/lish_moa_annotated.csv')
+treated_data = moa_data[moa_data['cp_type'] == 'trt_cp']
+control_data = moa_data[moa_data['cp_type'] == 'ctl_vehicle']
 
-    # Tailor speed to number of workers.
-    active_cpus = os.cpu_count() or 1
+# Capture meta indices from start of table.
+meta_indices = [
+    "sig_id",
+    "drug_id",
+    "training",
+    "cp_type",
+    "cp_time",
+    "cp_dose"
+]
 
-    # Create data loaders.
-    train_loader = torch.utils.data.DataLoader(
-        X_train_scaled,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=active_cpus)
+# Capture features from prefix values of columns.
+expression_indices = list(filter(lambda col: col.startswith('g-'), moa_data.columns))
+viability_indices = list(filter(lambda col: col.startswith('c-'), moa_data.columns))
+feature_indices = expression_indices + viability_indices
 
-    test_loader = torch.utils.data.DataLoader(
-        X_test_scaled,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=active_cpus)
+X = moa_data[feature_indices]
+y = moa_data[meta_indices]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
 
-    input_dim = len(feature_indices)
+# Scale data according to training dataset. Apply training scale to test
+# dataset. This does not transfer underlying knowledge, it's more for
+# normalization, so they're still split!
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-    train_losses = []
-    test_losses = []
-    for i in range(n_iter):
-        print(f"Starting iteration {i+1} of {n_iter}...")
-        linear = np.random.choice([True, False])
-        n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
-        latent_dim = np.random.randint(10, 100)
-        if linear:
-            # Linearly decay the hidden layers to the latent space.
-            points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
-            hidden_layers = list(map(lambda point: int(point), points[1:-1]))
-        else:
-            # Logarithmically decay the hidden layers to the latent space.
-            log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
-            hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
+X_train_scaled = X_train_scaled.astype(np.float32)
+X_test_scaled = X_train_scaled.astype(np.float32)
 
-        variational_autoencoder = VariationalAutoencoder(
-            input_dim=input_dim,
-            hidden_dims=hidden_layers,
-            latent_dim=latent_dim
-        )
-        variational_autoencoder.to(device)
+# Tailor speed to number of workers.
+active_cpus = os.cpu_count() or 1
 
-        criterion = nn.MSELoss()  # Mean Squared Error Loss
-        optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
+# Create data loaders.
+train_loader = torch.utils.data.DataLoader(
+    X_train_scaled,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=active_cpus)
 
-        train_losses.append(
-            train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 200, n_iter, 'data/ct_vae')
-        )
-        test_losses.append(
-            test_model(variational_autoencoder, test_loader)
-        )
-        torch.save(
-            variational_autoencoder, f'ct_vae_models/{n_iter}-model.pt'
-        )
+test_loader = torch.utils.data.DataLoader(
+    X_test_scaled,
+    batch_size=batch_size,
+    shuffle=False,
+    num_workers=active_cpus)
+
+input_dim = len(feature_indices)
+
+train_losses = []
+test_losses = []
+for i in range(n_iter):
+    print(f"Starting iteration {i+1} of {n_iter}...")
+    linear = np.random.choice([True, False])
+    n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
+    latent_dim = np.random.randint(10, 100)
+    if linear:
+        # Linearly decay the hidden layers to the latent space.
+        points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
+        hidden_layers = list(map(lambda point: int(point), points[1:-1]))
+    else:
+        # Logarithmically decay the hidden layers to the latent space.
+        log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
+        hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
+
+    variational_autoencoder = VariationalAutoencoder(
+        input_dim=input_dim,
+        hidden_dims=hidden_layers,
+        latent_dim=latent_dim
+    )
+    variational_autoencoder.to(device)
+
+    criterion = nn.MSELoss()  # Mean Squared Error Loss
+    optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
+
+    train_losses.append(
+        train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, n_iter, 'data/ct_vae')
+    )
+    test_losses.append(
+        test_model(variational_autoencoder, test_loader)
+    )
+    torch.save(
+        variational_autoencoder, f'ct_vae_models/{n_iter}-model.pt'
+    )
