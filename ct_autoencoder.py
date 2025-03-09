@@ -164,10 +164,8 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
+    best_vae_score = np.inf
     train_losses = []
-
-    # Save checkpoints at these epochs
-    checkpoint_epochs = [n_epochs // 10, n_epochs // 2, n_epochs]
 
     for epoch in range(n_epochs):
         print(f"Epoch {epoch+1} of {n_epochs}")
@@ -201,18 +199,18 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
         print(f"Epoch {epoch+1}/{n_epochs}, Test Loss: {test_error:.4f}")
 
         # Save checkpoints
-        if (epoch + 1) in checkpoint_epochs:
-            checkpoint_path = os.path.join(save_path, f"autoencoder_{iteration}_epoch_{epoch+1}.pth")
+        if test_error < best_vae_score:
+            checkpoint_path = os.path.join(save_path, f"v_autoencoder_{iteration}.pth")
             torch.save({
                 'model': model,
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': epoch_loss,
+                'losses': train_losses
             }, checkpoint_path)
-            print(f"Saved checkpoint at epoch {epoch+1}")
+            print(f"Saved model at epoch {epoch+1}")
 
-    return train_losses
+    return variational_autoencoder, train_losses
 
 def test_model(model, test_loader):
     model.eval()
@@ -253,8 +251,8 @@ expression_indices = list(filter(lambda col: col.startswith('g-'), moa_data.colu
 viability_indices = list(filter(lambda col: col.startswith('c-'), moa_data.columns))
 feature_indices = expression_indices + viability_indices
 
-X = moa_data[feature_indices]
-y = moa_data[meta_indices]
+X = treated_data[feature_indices]
+y = treated_data[meta_indices]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
 
 # Scale data according to training dataset. Apply training scale to test
@@ -311,12 +309,14 @@ for i in range(n_iter):
     criterion = nn.MSELoss()  # Mean Squared Error Loss
     optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
 
-    train_losses.append(
-        train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 200, i, 'data/ct_vae')
-    )
-    test_losses.append(
-        test_model(variational_autoencoder, test_loader)
-    )
+    metadata = {
+        'linear': linear,
+        'n_hidden_layers': n_hidden_layers,
+        'hidden_layers': hidden_layers,
+        'latent_layer': latent_dim
+    }
+
+    variational_autoencoder, train_losses = train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, i, 'data/ct_vae')
     torch.save(
-        variational_autoencoder, f'ct_vae_models/{n_iter}-model.pt'
+        (variational_autoencoder, metadata, train_losses), f'ct_vae_models/{n_iter}-model.pt'
     )
