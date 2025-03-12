@@ -150,7 +150,7 @@ def loss_function(reconstruction_x, x, mu, logvar):
 
     return reconstruction_loss + kl_divergence
 
-def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs, iteration, save_path='data/model_checkpoints', **kwargs):
+def train_model(model, train_loader, test_loader, optimizer, scheduler, criterion, n_epochs, iteration, save_path='data/model_checkpoints', linear=False):
     """
     Trains an autoencoder model.
 
@@ -196,6 +196,7 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
 
         train_losses.append([epoch_loss, train_error, test_error])
 
+        scheduler.step()
         print(f"Epoch {epoch+1}/{n_epochs}, Loss: {epoch_loss:.4f}")
         print(f"Epoch {epoch+1}/{n_epochs}, Train Loss: {train_error:.4f}")
         print(f"Epoch {epoch+1}/{n_epochs}, Test Loss: {test_error:.4f}")
@@ -203,7 +204,7 @@ def train_model(model, train_loader, test_loader, optimizer, criterion, n_epochs
         # Save checkpoints
         if test_error < best_vae_score:
             best_vae_score = test_error
-            checkpoint_path = os.path.join(save_path, f"v_autoencoder_{iteration}.pth")
+            checkpoint_path = os.path.join(save_path, f"iteration-{iteration}-linear-{linear}-model.pt")
             torch.save({
                 'model': model,
                 'epoch': epoch + 1,
@@ -289,37 +290,35 @@ input_dim = len(feature_indices)
 train_losses = []
 test_losses = []
 for i in range(n_iter):
-    print(f"Starting iteration {i+1} of {n_iter}...")
-    linear = np.random.choice([True, False])
     n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
     latent_dim = np.random.randint(10, 100)
-    if linear:
-        # Linearly decay the hidden layers to the latent space.
-        points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
-        hidden_layers = list(map(lambda point: int(point), points[1:-1]))
-    else:
-        # Logarithmically decay the hidden layers to the latent space.
-        log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
-        hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
+    for linear in [False, True]:
+        print(f"Starting iteration {i+1} of {n_iter} with linear == {linear}...")
+        if linear:
+            # Linearly decay the hidden layers to the latent space.
+            points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
+            hidden_layers = list(map(lambda point: int(point), points[1:-1]))
+        else:
+            # Logarithmically decay the hidden layers to the latent space.
+            log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
+            hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
 
-    variational_autoencoder = VariationalAutoencoder(
-        input_dim=input_dim,
-        hidden_dims=hidden_layers,
-        latent_dim=latent_dim
-    )
-    variational_autoencoder.to(device)
+        variational_autoencoder = VariationalAutoencoder(
+            input_dim=input_dim,
+            hidden_dims=hidden_layers,
+            latent_dim=latent_dim
+        )
+        variational_autoencoder.to(device)
 
-    criterion = nn.MSELoss()  # Mean Squared Error Loss
-    optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
+        criterion = nn.MSELoss()  # Mean Squared Error Loss
+        optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(mode='min', factor=0.1, patience=10, verbose=True)
 
-    metadata = {
-        'linear': linear,
-        'n_hidden_layers': n_hidden_layers,
-        'hidden_layers': hidden_layers,
-        'latent_layer': latent_dim
-    }
+        metadata = {
+            'linear': linear,
+            'n_hidden_layers': n_hidden_layers,
+            'hidden_layers': hidden_layers,
+            'latent_layer': latent_dim
+        }
 
-    variational_autoencoder, train_losses = train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, i, 'data/ct_vae')
-    torch.save(
-        (variational_autoencoder, metadata, train_losses), f'ct_vae_models/{n_iter}-model.pt'
-    )
+        variational_autoencoder, train_losses = train_model(variational_autoencoder, train_loader, test_loader, optimizer, scheduler, criterion, 500, i, 'ct_vae_model/', linear)
