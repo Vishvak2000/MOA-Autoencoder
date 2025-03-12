@@ -227,99 +227,99 @@ def test_model(model, test_loader):
             test_loss += loss.item()
     return test_loss / len(test_loader.dataset)
 
-##### MAIN FUNCTION
+# ##### MAIN FUNCTION
 
-# def main(n_iter=100, batch_size = 1024):
-# Get annotated dataset and stratify by treatment group (control or not).
+# # def main(n_iter=100, batch_size = 1024):
+# # Get annotated dataset and stratify by treatment group (control or not).
 
-batch_size = 1024
-n_iter = 10
+# batch_size = 1024
+# n_iter = 10
 
-moa_data = pd.read_csv('data/lish_moa_annotated.csv')
-treated_data = moa_data[moa_data['cp_type'] == 'trt_cp']
-control_data = moa_data[moa_data['cp_type'] == 'ctl_vehicle']
+# moa_data = pd.read_csv('data/lish_moa_annotated.csv')
+# treated_data = moa_data[moa_data['cp_type'] == 'trt_cp']
+# control_data = moa_data[moa_data['cp_type'] == 'ctl_vehicle']
 
-# Capture meta indices from start of table.
-meta_indices = [
-    "sig_id",
-    "drug_id",
-    "training",
-    "cp_type",
-    "cp_time",
-    "cp_dose"
-]
+# # Capture meta indices from start of table.
+# meta_indices = [
+#     "sig_id",
+#     "drug_id",
+#     "training",
+#     "cp_type",
+#     "cp_time",
+#     "cp_dose"
+# ]
 
-# Capture features from prefix values of columns.
-expression_indices = list(filter(lambda col: col.startswith('g-'), moa_data.columns))
-viability_indices = list(filter(lambda col: col.startswith('c-'), moa_data.columns))
-feature_indices = expression_indices + viability_indices
+# # Capture features from prefix values of columns.
+# expression_indices = list(filter(lambda col: col.startswith('g-'), moa_data.columns))
+# viability_indices = list(filter(lambda col: col.startswith('c-'), moa_data.columns))
+# feature_indices = expression_indices + viability_indices
 
-X = treated_data[feature_indices]
-y = treated_data[meta_indices]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
+# X = treated_data[feature_indices]
+# y = treated_data[meta_indices]
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
 
-# Scale data according to training dataset. Apply training scale to test
-# dataset. This does not transfer underlying knowledge, it's more for
-# normalization, so they're still split!
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# # Scale data according to training dataset. Apply training scale to test
+# # dataset. This does not transfer underlying knowledge, it's more for
+# # normalization, so they're still split!
+# scaler = StandardScaler()
+# X_train_scaled = scaler.fit_transform(X_train)
+# X_test_scaled = scaler.transform(X_test)
 
-X_train_scaled = X_train_scaled.astype(np.float32)
-X_test_scaled = X_train_scaled.astype(np.float32)
+# X_train_scaled = X_train_scaled.astype(np.float32)
+# X_test_scaled = X_train_scaled.astype(np.float32)
 
-# Tailor speed to number of workers.
-active_cpus = os.cpu_count() or 1
+# # Tailor speed to number of workers.
+# active_cpus = os.cpu_count() or 1
 
-# Create data loaders.
-train_loader = torch.utils.data.DataLoader(
-    X_train_scaled,
-    batch_size=batch_size,
-    shuffle=True,
-    num_workers=active_cpus)
+# # Create data loaders.
+# train_loader = torch.utils.data.DataLoader(
+#     X_train_scaled,
+#     batch_size=batch_size,
+#     shuffle=True,
+#     num_workers=active_cpus)
 
-test_loader = torch.utils.data.DataLoader(
-    X_test_scaled,
-    batch_size=batch_size,
-    shuffle=False,
-    num_workers=active_cpus)
+# test_loader = torch.utils.data.DataLoader(
+#     X_test_scaled,
+#     batch_size=batch_size,
+#     shuffle=False,
+#     num_workers=active_cpus)
 
-input_dim = len(feature_indices)
+# input_dim = len(feature_indices)
 
-train_losses = []
-test_losses = []
-for i in range(n_iter):
-    print(f"Starting iteration {i+1} of {n_iter}...")
-    linear = np.random.choice([True, False])
-    n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
-    latent_dim = np.random.randint(10, 100)
-    if linear:
-        # Linearly decay the hidden layers to the latent space.
-        points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
-        hidden_layers = list(map(lambda point: int(point), points[1:-1]))
-    else:
-        # Logarithmically decay the hidden layers to the latent space.
-        log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
-        hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
+# train_losses = []
+# test_losses = []
+# for i in range(n_iter):
+#     print(f"Starting iteration {i+1} of {n_iter}...")
+#     linear = np.random.choice([True, False])
+#     n_hidden_layers = np.random.randint(1, 4) # 1 to 3 hidden layers
+#     latent_dim = np.random.randint(10, 100)
+#     if linear:
+#         # Linearly decay the hidden layers to the latent space.
+#         points = np.linspace(input_dim, latent_dim, n_hidden_layers + 2)
+#         hidden_layers = list(map(lambda point: int(point), points[1:-1]))
+#     else:
+#         # Logarithmically decay the hidden layers to the latent space.
+#         log_points = np.linspace(np.log(input_dim), np.log(latent_dim), n_hidden_layers + 2)
+#         hidden_layers = list(map(lambda l: int(np.exp(l)), log_points))[1:-1]
 
-    variational_autoencoder = VariationalAutoencoder(
-        input_dim=input_dim,
-        hidden_dims=hidden_layers,
-        latent_dim=latent_dim
-    )
-    variational_autoencoder.to(device)
+#     variational_autoencoder = VariationalAutoencoder(
+#         input_dim=input_dim,
+#         hidden_dims=hidden_layers,
+#         latent_dim=latent_dim
+#     )
+#     variational_autoencoder.to(device)
 
-    criterion = nn.MSELoss()  # Mean Squared Error Loss
-    optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
+#     criterion = nn.MSELoss()  # Mean Squared Error Loss
+#     optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
 
-    metadata = {
-        'linear': linear,
-        'n_hidden_layers': n_hidden_layers,
-        'hidden_layers': hidden_layers,
-        'latent_layer': latent_dim
-    }
+#     metadata = {
+#         'linear': linear,
+#         'n_hidden_layers': n_hidden_layers,
+#         'hidden_layers': hidden_layers,
+#         'latent_layer': latent_dim
+#     }
 
-    variational_autoencoder, train_losses = train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, i, 'data/ct_vae')
-    torch.save(
-        (variational_autoencoder, metadata, train_losses), f'ct_vae_models/{n_iter}-model.pt'
-    )
+#     variational_autoencoder, train_losses = train_model(variational_autoencoder, train_loader, test_loader, optimizer, criterion, 500, i, 'data/ct_vae')
+#     torch.save(
+#         (variational_autoencoder, metadata, train_losses), f'ct_vae_models/{n_iter}-model.pt'
+#     )
