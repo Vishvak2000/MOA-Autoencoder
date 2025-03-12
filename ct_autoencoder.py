@@ -312,7 +312,7 @@ for i in range(n_iter):
 
         criterion = nn.MSELoss()  # Mean Squared Error Loss
         optimizer = optim.Adam(variational_autoencoder.parameters(), lr=0.001)  # Adam optimizer with learning rate 0.001
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(mode='min', factor=0.1, patience=10, verbose=True)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
 
         metadata = {
             'linear': linear,
